@@ -1004,6 +1004,10 @@ export const workspace = pgTable('workspace', {
   billedAccountUserId: text('billed_account_user_id')
     .notNull()
     .references(() => user.id, { onDelete: 'no action' }),
+  /** Optional: links this workspace to an organization, making it a shared org workspace. */
+  organizationId: text('organization_id').references(() => organization.id, {
+    onDelete: 'set null',
+  }),
   allowPersonalApiKeys: boolean('allow_personal_api_keys').notNull().default(true),
   inboxEnabled: boolean('inbox_enabled').notNull().default(false),
   inboxAddress: text('inbox_address'),

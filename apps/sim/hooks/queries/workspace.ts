@@ -26,6 +26,7 @@ export interface Workspace {
   name: string
   color?: string
   ownerId: string
+  organizationId?: string | null
   role?: string
   membershipId?: string
   permissions?: 'admin' | 'write' | 'read' | null

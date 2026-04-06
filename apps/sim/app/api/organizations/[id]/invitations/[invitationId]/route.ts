@@ -10,11 +10,12 @@ import {
   user,
   userStats,
   type WorkspaceInvitationStatus,
+  workspace,
   workspaceEnvironment,
   workspaceInvitation,
 } from '@sim/db/schema'
 import { createLogger } from '@sim/logger'
-import { and, eq, inArray } from 'drizzle-orm'
+import { and, eq, inArray, isNull } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { getEmailSubject, renderInvitationEmail } from '@/components/emails'
@@ -506,6 +507,48 @@ export async function PUT(
               updatedAt: new Date(),
             })
           }
+        }
+
+        // Auto-provision access to all organization-owned workspaces
+        try {
+          const orgWorkspaces = await tx
+            .select({ id: workspace.id })
+            .from(workspace)
+            .where(and(eq(workspace.organizationId, organizationId), isNull(workspace.archivedAt)))
+
+          for (const orgWs of orgWorkspaces) {
+            const existingOrgWsPermission = await tx
+              .select({ id: permissions.id })
+              .from(permissions)
+              .where(
+                and(
+                  eq(permissions.entityId, orgWs.id),
+                  eq(permissions.entityType, 'workspace'),
+                  eq(permissions.userId, session.user.id)
+                )
+              )
+              .limit(1)
+              .then((rows) => rows[0])
+
+            if (!existingOrgWsPermission) {
+              await tx.insert(permissions).values({
+                id: generateId(),
+                entityType: 'workspace',
+                entityId: orgWs.id,
+                userId: session.user.id,
+                permissionType: 'read',
+                createdAt: new Date(),
+                updatedAt: new Date(),
+              })
+            }
+          }
+        } catch (orgWsError) {
+          logger.error('Failed to auto-provision org workspace access for new member', {
+            userId: session.user.id,
+            organizationId,
+            error: orgWsError,
+          })
+          // Don't fail the whole invitation acceptance due to this
         }
       } else if (status === 'cancelled') {
         await tx
