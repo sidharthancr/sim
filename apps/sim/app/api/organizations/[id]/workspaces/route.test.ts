@@ -4,11 +4,11 @@
 import { createMockRequest } from '@sim/testing'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { mockGetSession, mockDbResults, mockDbChain, mockInsertValues, mockRandomUUID } = vi.hoisted(
+const { mockGetSession, mockDbResults, mockDbChain, mockInsertValues, mockGenerateId } = vi.hoisted(
   () => {
     const mockGetSession = vi.fn()
     const mockInsertValues = vi.fn().mockResolvedValue(undefined)
-    const mockRandomUUID = vi.fn().mockReturnValue('mock-uuid-1234')
+    const mockGenerateId = vi.fn().mockReturnValue('mock-uuid-1234')
 
     const mockDbResults: { value: unknown[] } = { value: [] }
 
@@ -30,12 +30,12 @@ const { mockGetSession, mockDbResults, mockDbChain, mockInsertValues, mockRandom
       }),
     }
 
-    return { mockGetSession, mockDbResults, mockDbChain, mockInsertValues, mockRandomUUID }
+    return { mockGetSession, mockDbResults, mockDbChain, mockInsertValues, mockGenerateId }
   }
 )
 
 vi.mock('@/lib/core/utils/uuid', () => ({
-  generateId: mockRandomUUID,
+  generateId: mockGenerateId,
   generateShortId: vi.fn(() => 'mock-short-id'),
 }))
 

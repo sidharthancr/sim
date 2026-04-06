@@ -536,7 +536,6 @@ export function useOrganizationWorkspaces(organizationId: string | undefined) {
     queryFn: ({ signal }) => fetchOrganizationWorkspaces(organizationId as string, signal),
     enabled: Boolean(organizationId),
     staleTime: 60 * 1000,
-    placeholderData: keepPreviousData,
   })
 }
 

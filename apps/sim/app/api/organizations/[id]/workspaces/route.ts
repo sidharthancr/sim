@@ -45,8 +45,9 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
       .from(member)
       .where(and(eq(member.organizationId, organizationId), eq(member.userId, session.user.id)))
       .limit(1)
+      .then((rows) => rows[0])
 
-    if (memberEntry.length === 0) {
+    if (!memberEntry) {
       return NextResponse.json(
         { error: 'Forbidden - Not a member of this organization' },
         { status: 403 }
@@ -108,15 +109,16 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       .from(member)
       .where(and(eq(member.organizationId, organizationId), eq(member.userId, session.user.id)))
       .limit(1)
+      .then((rows) => rows[0])
 
-    if (memberEntry.length === 0) {
+    if (!memberEntry) {
       return NextResponse.json(
         { error: 'Forbidden - Not a member of this organization' },
         { status: 403 }
       )
     }
 
-    const userRole = memberEntry[0].role
+    const userRole = memberEntry.role
     if (!['owner', 'admin'].includes(userRole)) {
       return NextResponse.json(
         { error: 'Forbidden - Admin access required to create organization workspaces' },
@@ -161,8 +163,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         userId: m.userId,
         // Org admins/owners get admin access; regular members get read access
         permissionType: (['owner', 'admin'].includes(m.role) ? 'admin' : 'read') as
-          | 'admin'
-          | 'read',
+          'admin' | 'read',
         createdAt: now,
         updatedAt: now,
       }))

@@ -516,30 +516,37 @@ export async function PUT(
             .from(workspace)
             .where(and(eq(workspace.organizationId, organizationId), isNull(workspace.archivedAt)))
 
-          for (const orgWs of orgWorkspaces) {
-            const existingOrgWsPermission = await tx
-              .select({ id: permissions.id })
+          if (orgWorkspaces.length > 0) {
+            const orgWorkspaceIds = orgWorkspaces.map((w) => w.id)
+
+            // Batch-fetch existing permissions for all org workspaces
+            const existingOrgWsPermissions = await tx
+              .select({ entityId: permissions.entityId })
               .from(permissions)
               .where(
                 and(
-                  eq(permissions.entityId, orgWs.id),
+                  inArray(permissions.entityId, orgWorkspaceIds),
                   eq(permissions.entityType, 'workspace'),
                   eq(permissions.userId, session.user.id)
                 )
               )
-              .limit(1)
-              .then((rows) => rows[0])
 
-            if (!existingOrgWsPermission) {
-              await tx.insert(permissions).values({
+            const alreadyGrantedIds = new Set(existingOrgWsPermissions.map((p) => p.entityId))
+
+            const newPermissions = orgWorkspaceIds
+              .filter((id) => !alreadyGrantedIds.has(id))
+              .map((id) => ({
                 id: generateId(),
-                entityType: 'workspace',
-                entityId: orgWs.id,
+                entityType: 'workspace' as const,
+                entityId: id,
                 userId: session.user.id,
-                permissionType: 'read',
+                permissionType: 'read' as const,
                 createdAt: new Date(),
                 updatedAt: new Date(),
-              })
+              }))
+
+            if (newPermissions.length > 0) {
+              await tx.insert(permissions).values(newPermissions)
             }
           }
         } catch (orgWsError) {
