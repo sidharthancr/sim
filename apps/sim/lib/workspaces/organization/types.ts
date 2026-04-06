@@ -50,6 +50,7 @@ export interface Workspace {
   id: string
   name: string
   ownerId: string
+  organizationId?: string | null
   isOwner: boolean
   canInvite: boolean
 }

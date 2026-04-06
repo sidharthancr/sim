@@ -19,6 +19,7 @@ export const organizationKeys = {
   billing: (id: string) => [...organizationKeys.detail(id), 'billing'] as const,
   members: (id: string) => [...organizationKeys.detail(id), 'members'] as const,
   memberUsage: (id: string) => [...organizationKeys.detail(id), 'member-usage'] as const,
+  workspaces: (id: string) => [...organizationKeys.detail(id), 'workspaces'] as const,
 }
 
 /**
@@ -496,6 +497,86 @@ export function useCreateOrganization() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: organizationKeys.lists() })
+    },
+  })
+}
+
+/** Represents a workspace owned by an organization. */
+export interface OrgWorkspace {
+  id: string
+  name: string
+  color?: string
+  ownerId: string
+  organizationId: string
+  createdAt: string | Date
+  updatedAt: string | Date
+}
+
+async function fetchOrganizationWorkspaces(
+  organizationId: string,
+  signal?: AbortSignal
+): Promise<OrgWorkspace[]> {
+  const response = await fetch(`/api/organizations/${organizationId}/workspaces`, { signal })
+
+  if (!response.ok) {
+    throw new Error('Failed to fetch organization workspaces')
+  }
+
+  const data = await response.json()
+  return data.workspaces || []
+}
+
+/**
+ * Fetches all workspaces owned by an organization.
+ * @param organizationId - The organization ID
+ */
+export function useOrganizationWorkspaces(organizationId: string | undefined) {
+  return useQuery({
+    queryKey: organizationKeys.workspaces(organizationId!),
+    queryFn: ({ signal }) => fetchOrganizationWorkspaces(organizationId as string, signal),
+    enabled: Boolean(organizationId),
+    staleTime: 60 * 1000,
+  })
+}
+
+interface CreateOrgWorkspaceParams {
+  organizationId: string
+  name: string
+  color?: string
+  skipDefaultWorkflow?: boolean
+}
+
+/**
+ * Creates a new workspace owned by the specified organization.
+ */
+export function useCreateOrganizationWorkspace() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({
+      organizationId,
+      name,
+      color,
+      skipDefaultWorkflow,
+    }: CreateOrgWorkspaceParams) => {
+      const response = await fetch(`/api/organizations/${organizationId}/workspaces`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, color, skipDefaultWorkflow }),
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Failed to create organization workspace')
+      }
+
+      const data = await response.json()
+      return data.workspace as OrgWorkspace
+    },
+    onSettled: (_data, _error, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: organizationKeys.workspaces(variables.organizationId),
+      })
     },
   })
 }

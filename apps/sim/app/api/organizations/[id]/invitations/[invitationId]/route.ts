@@ -10,11 +10,12 @@ import {
   user,
   userStats,
   type WorkspaceInvitationStatus,
+  workspace,
   workspaceEnvironment,
   workspaceInvitation,
 } from '@sim/db/schema'
 import { createLogger } from '@sim/logger'
-import { and, eq, inArray } from 'drizzle-orm'
+import { and, eq, inArray, isNull } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { getEmailSubject, renderInvitationEmail } from '@/components/emails'
@@ -506,6 +507,55 @@ export async function PUT(
               updatedAt: new Date(),
             })
           }
+        }
+
+        // Auto-provision access to all organization-owned workspaces
+        try {
+          const orgWorkspaces = await tx
+            .select({ id: workspace.id })
+            .from(workspace)
+            .where(and(eq(workspace.organizationId, organizationId), isNull(workspace.archivedAt)))
+
+          if (orgWorkspaces.length > 0) {
+            const orgWorkspaceIds = orgWorkspaces.map((w) => w.id)
+
+            // Batch-fetch existing permissions for all org workspaces
+            const existingOrgWsPermissions = await tx
+              .select({ entityId: permissions.entityId })
+              .from(permissions)
+              .where(
+                and(
+                  inArray(permissions.entityId, orgWorkspaceIds),
+                  eq(permissions.entityType, 'workspace'),
+                  eq(permissions.userId, session.user.id)
+                )
+              )
+
+            const alreadyGrantedIds = new Set(existingOrgWsPermissions.map((p) => p.entityId))
+
+            const newPermissions = orgWorkspaceIds
+              .filter((id) => !alreadyGrantedIds.has(id))
+              .map((id) => ({
+                id: generateId(),
+                entityType: 'workspace' as const,
+                entityId: id,
+                userId: session.user.id,
+                permissionType: 'read' as const,
+                createdAt: new Date(),
+                updatedAt: new Date(),
+              }))
+
+            if (newPermissions.length > 0) {
+              await tx.insert(permissions).values(newPermissions)
+            }
+          }
+        } catch (orgWsError) {
+          logger.error('Failed to auto-provision org workspace access for new member', {
+            userId: session.user.id,
+            organizationId,
+            error: orgWsError,
+          })
+          // Don't fail the whole invitation acceptance due to this
         }
       } else if (status === 'cancelled') {
         await tx
