@@ -219,4 +219,31 @@ describe('POST /api/organizations/[id]/workspaces', () => {
     expect(response.status).toBe(403)
     expect(data.error).toContain('Admin access required')
   })
+
+  it('creates an org workspace and returns 200 when admin', async () => {
+    mockGetSession.mockResolvedValue({
+      user: { id: 'user-1', name: 'Test User', email: 'test@example.com' },
+    })
+
+    const orgMembers = [
+      { userId: 'user-1', role: 'admin' },
+      { userId: 'user-2', role: 'member' },
+    ]
+
+    // Org found, admin member found, members list returned
+    mockDbResults.value = [
+      [{ id: ORG_ID, name: 'Test Org' }],
+      [{ id: 'member-1', role: 'admin' }],
+      orgMembers,
+    ]
+
+    const request = createMockRequest('POST', { name: 'Team Workspace', skipDefaultWorkflow: true })
+    const response = await POST(request, { params: Promise.resolve({ id: ORG_ID }) })
+    const data = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(data.workspace).toBeDefined()
+    expect(data.workspace.organizationId).toBe(ORG_ID)
+    expect(mockInsertValues).toHaveBeenCalled()
+  })
 })

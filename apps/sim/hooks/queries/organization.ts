@@ -532,7 +532,7 @@ async function fetchOrganizationWorkspaces(
  */
 export function useOrganizationWorkspaces(organizationId: string | undefined) {
   return useQuery({
-    queryKey: organizationKeys.workspaces(organizationId ?? ''),
+    queryKey: organizationKeys.workspaces(organizationId!),
     queryFn: ({ signal }) => fetchOrganizationWorkspaces(organizationId as string, signal),
     enabled: Boolean(organizationId),
     staleTime: 60 * 1000,
