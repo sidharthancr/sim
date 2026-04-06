@@ -474,16 +474,16 @@ export function TeamManagement() {
               <p className='text-[var(--text-muted)] text-xs'>No organization workspaces yet.</p>
             ) : (
               <ul className='mb-2 flex flex-col gap-1'>
-                {orgWorkspaces.map((ws: OrgWorkspace) => (
+                {orgWorkspaces.map((workspace: OrgWorkspace) => (
                   <li
-                    key={ws.id}
+                    key={workspace.id}
                     className='flex items-center gap-2 rounded-sm px-1 py-1 text-[var(--text-body)] text-small'
                   >
                     <span
                       className='h-[10px] w-[10px] flex-shrink-0 rounded-sm'
-                      style={{ backgroundColor: ws.color || '#33C482' }}
+                      style={{ backgroundColor: workspace.color || '#33C482' }}
                     />
-                    <span className='min-w-0 flex-1 truncate'>{ws.name}</span>
+                    <span className='min-w-0 flex-1 truncate'>{workspace.name}</span>
                   </li>
                 ))}
               </ul>
@@ -496,7 +496,7 @@ export function TeamManagement() {
                 value={newOrgWorkspaceName}
                 onChange={(e) => setNewOrgWorkspaceName(e.target.value)}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter') void handleCreateOrgWorkspace()
+                  if (e.key === 'Enter') handleCreateOrgWorkspace()
                 }}
                 placeholder='New workspace name…'
                 disabled={isCreatingOrgWorkspace}
