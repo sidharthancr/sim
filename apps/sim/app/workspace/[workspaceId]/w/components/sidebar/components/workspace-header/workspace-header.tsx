@@ -37,6 +37,7 @@ interface Workspace {
   name: string
   color?: string
   ownerId: string
+  organizationId?: string | null
   role?: string
   permissions?: 'admin' | 'write' | 'read' | null
 }
@@ -507,6 +508,11 @@ export function WorkspaceHeader({
                               onContextMenu={(e) => handleContextMenu(e, workspace)}
                             >
                               <span className='min-w-0 flex-1 truncate'>{workspace.name}</span>
+                              {workspace.organizationId && (
+                                <span className='flex-shrink-0 rounded px-1 py-0.5 font-medium text-[10px] text-[var(--text-tertiary)] leading-none bg-[var(--surface-3)]'>
+                                  Team
+                                </span>
+                              )}
                               <button
                                 type='button'
                                 aria-label='Workspace options'

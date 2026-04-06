@@ -24,13 +24,16 @@ import {
 } from '@/app/workspace/[workspaceId]/settings/components/team-management/components'
 import {
   useCreateOrganization,
+  useCreateOrganizationWorkspace,
   useInviteMember,
   useOrganization,
   useOrganizationBilling,
   useOrganizationSubscription,
+  useOrganizationWorkspaces,
   useOrganizations,
   useRemoveMember,
   useUpdateSeats,
+  type OrgWorkspace,
 } from '@/hooks/queries/organization'
 import { useSubscriptionData } from '@/hooks/queries/subscription'
 import { useAdminWorkspaces } from '@/hooks/queries/workspace'
@@ -68,11 +71,17 @@ export function TeamManagement() {
   const removeMemberMutation = useRemoveMember()
   const updateSeatsMutation = useUpdateSeats()
   const createOrgMutation = useCreateOrganization()
+  const createOrgWorkspaceMutation = useCreateOrganizationWorkspace()
+
+  const { data: orgWorkspaces = [], isLoading: isLoadingOrgWorkspaces } =
+    useOrganizationWorkspaces(activeOrganization?.id)
 
   const costPerSeat = getPlanTierDollars(subscriptionData?.plan)
   const creditsPerSeat = getPlanTierCredits(subscriptionData?.plan)
 
   const [inviteSuccess, setInviteSuccess] = useState(false)
+  const [newOrgWorkspaceName, setNewOrgWorkspaceName] = useState('')
+  const [isCreatingOrgWorkspace, setIsCreatingOrgWorkspace] = useState(false)
 
   const [inviteEmails, setInviteEmails] = useState<TagItem[]>([])
   const [showWorkspaceInvite, setShowWorkspaceInvite] = useState(false)
@@ -178,6 +187,25 @@ export function TeamManagement() {
       return [...prev, { workspaceId, permission }]
     })
   }, [])
+
+  const handleCreateOrgWorkspace = useCallback(async () => {
+    const name = newOrgWorkspaceName.trim()
+    if (!activeOrganization?.id || !name) return
+
+    setIsCreatingOrgWorkspace(true)
+    try {
+      await createOrgWorkspaceMutation.mutateAsync({
+        organizationId: activeOrganization.id,
+        name,
+        skipDefaultWorkflow: false,
+      })
+      setNewOrgWorkspaceName('')
+    } catch (error) {
+      logger.error('Failed to create org workspace', error)
+    } finally {
+      setIsCreatingOrgWorkspace(false)
+    }
+  }, [activeOrganization?.id, newOrgWorkspaceName, createOrgWorkspaceMutation])
 
   const handleRemoveMember = useCallback(
     async (member: Member) => {
@@ -423,6 +451,69 @@ export function TeamManagement() {
           onRemoveMember={handleRemoveMember}
         />
       </div>
+
+      {/* Organization Workspaces */}
+      {adminOrOwner && (
+        <div className='rounded-md border border-[var(--border-1)] bg-[var(--surface-5)]'>
+          <div className='flex items-center justify-between border-[var(--border-1)] border-b px-3.5 py-2.5'>
+            <div>
+              <p className='font-medium text-[var(--text-primary)] text-small'>
+                Organization Workspaces
+              </p>
+              <p className='text-[var(--text-muted)] text-xs'>
+                Shared workspaces automatically accessible to all team members.
+              </p>
+            </div>
+          </div>
+
+          {/* Workspace list */}
+          <div className='px-3.5 py-2.5'>
+            {isLoadingOrgWorkspaces ? (
+              <p className='text-[var(--text-muted)] text-xs'>Loading workspaces…</p>
+            ) : orgWorkspaces.length === 0 ? (
+              <p className='text-[var(--text-muted)] text-xs'>No organization workspaces yet.</p>
+            ) : (
+              <ul className='mb-2 flex flex-col gap-1'>
+                {orgWorkspaces.map((ws: OrgWorkspace) => (
+                  <li
+                    key={ws.id}
+                    className='flex items-center gap-2 rounded-sm px-1 py-1 text-[var(--text-body)] text-small'
+                  >
+                    <span
+                      className='h-[10px] w-[10px] flex-shrink-0 rounded-sm'
+                      style={{ backgroundColor: ws.color || '#33C482' }}
+                    />
+                    <span className='min-w-0 flex-1 truncate'>{ws.name}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+
+            {/* Create new org workspace */}
+            <div className='mt-2 flex items-center gap-2'>
+              <input
+                type='text'
+                value={newOrgWorkspaceName}
+                onChange={(e) => setNewOrgWorkspaceName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') void handleCreateOrgWorkspace()
+                }}
+                placeholder='New workspace name…'
+                disabled={isCreatingOrgWorkspace}
+                className='min-w-0 flex-1 rounded-md border border-[var(--border-1)] bg-[var(--surface-2)] px-2.5 py-1.5 text-[var(--text-primary)] text-small outline-none placeholder:text-[var(--text-muted)] focus:border-[var(--brand-accent)] focus:ring-0'
+              />
+              <button
+                type='button'
+                disabled={!newOrgWorkspaceName.trim() || isCreatingOrgWorkspace}
+                onClick={handleCreateOrgWorkspace}
+                className='flex-shrink-0 rounded-md bg-[var(--brand-accent)] px-3 py-1.5 font-medium text-small text-white transition-opacity hover:opacity-90 disabled:pointer-events-none disabled:opacity-40'
+              >
+                {isCreatingOrgWorkspace ? 'Creating…' : 'Create'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Additional Info - Subtle and collapsed */}
       <div className='flex flex-col gap-2.5'>
